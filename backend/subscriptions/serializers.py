@@ -70,7 +70,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "paid_at", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "invoice_number", "status", "paid_at", "created_at", "updated_at"]
-        extra_kwargs = {"subscription": {"queryset": Subscription.objects.select_related("customer", "plan")}}
+        extra_kwargs = {
+            "subscription": {"queryset": Subscription.objects.select_related("customer", "plan")},
+            # Optional in the API: validate() fills in amount, currency, issue and due dates from the plan.
+            "amount": {"required": False},
+            "due_date": {"required": False},
+        }
 
     def get_subscription_label(self, obj):
         return str(obj.subscription)

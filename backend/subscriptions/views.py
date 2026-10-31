@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
@@ -87,13 +86,6 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
         if subscription_value.isdigit():
             queryset = queryset.filter(subscription_id=int(subscription_value))
         return queryset
-
-    def perform_create(self, serializer):
-        with transaction.atomic():
-            invoice = serializer.save()
-            # Number is built from the database id, so it is unique and sequential.
-            invoice.invoice_number = f"INV-{invoice.issue_date:%Y}-{invoice.pk:05d}"
-            invoice.save(update_fields=["invoice_number"])
 
 
 class InvoiceDetailView(generics.RetrieveUpdateAPIView):

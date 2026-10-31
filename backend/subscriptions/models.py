@@ -1,8 +1,9 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -84,6 +85,20 @@ class Invoice(models.Model):
 
     def __str__(self):
         return self.invoice_number or f"Invoice {self.pk}"
+
+    def save(self, *args, **kwargs):
+        """Give every new invoice a unique number, however it is created (API, admin or code).
+
+        The number uses the database id, which only exists after the first insert. So the row is
+        first saved with a unique placeholder, then renamed to INV-<year>-<id> in the same transaction.
+        """
+        if self.invoice_number or self.pk is not None:
+            return super().save(*args, **kwargs)
+        with transaction.atomic():
+            self.invoice_number = f"PENDING-{uuid4().hex[:20]}"  # 28 chars, fits max_length=30
+            super().save(*args, **kwargs)
+            self.invoice_number = f"INV-{self.issue_date.year}-{self.pk:05d}"
+            Invoice.objects.filter(pk=self.pk).update(invoice_number=self.invoice_number)
 
     @property
     def customer(self):

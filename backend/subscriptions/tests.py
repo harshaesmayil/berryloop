@@ -176,6 +176,24 @@ class InvoiceTests(BillingTestBase):
         self.assertEqual(self.client.get("/api/invoices/", {"status": "overdue"}).data["count"], 1)
         self.assertEqual(self.client.get("/api/invoices/", {"status": "pending"}).data["count"], 1)
 
+    def test_direct_model_creation_gives_unique_numbers(self):
+        subscription = self.make_subscription()
+        first = Invoice.objects.create(subscription=subscription, amount="500.00", due_date=timezone.localdate())
+        second = Invoice.objects.create(subscription=subscription, amount="500.00", due_date=timezone.localdate())
+        self.assertNotEqual(first.invoice_number, second.invoice_number)
+        self.assertTrue(first.invoice_number.startswith("INV-"))
+        self.assertTrue(second.invoice_number.endswith(f"{second.pk:05d}"))
+        self.assertFalse(Invoice.objects.filter(invoice_number="").exists())
+
+    def test_api_created_invoices_get_unique_numbers(self):
+        subscription = self.make_subscription()
+        numbers = set()
+        for _ in range(3):
+            response = self.client.post("/api/invoices/", {"subscription": subscription.pk}, format="json")
+            self.assertEqual(response.status_code, 201)
+            numbers.add(response.data["invoice_number"])
+        self.assertEqual(len(numbers), 3)
+
     def test_paid_invoice_is_not_overdue(self):
         invoice = Invoice.objects.create(
             subscription=self.make_subscription(), amount="500.00",
