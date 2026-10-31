@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
-from .models import Plan, Product
+from django.core.exceptions import ValidationError as DjangoValidationError
+
+from .models import CURRENCY_VALIDATOR, Plan, Product
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -43,6 +45,8 @@ class ProductOptionSerializer(serializers.ModelSerializer):
 
 class PlanSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
+    # Declared here so lowercase input reaches validate_currency, which normalises it first.
+    currency = serializers.CharField(max_length=3, required=False, default="INR")
 
     class Meta:
         model = Plan
@@ -62,7 +66,12 @@ class PlanSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate_currency(self, value):
-        return value.strip().upper()
+        value = value.strip().upper()
+        try:
+            CURRENCY_VALIDATOR(value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Use a 3-letter currency code such as INR or USD.")
+        return value
 
     def validate(self, attrs):
         product = attrs.get("product", getattr(self.instance, "product", None))

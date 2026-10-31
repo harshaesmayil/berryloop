@@ -67,8 +67,13 @@ class CustomerDetailView(CustomerQuerysetMixin, generics.RetrieveUpdateDestroyAP
     def perform_update(self, serializer):
         save_customer(serializer)
 
-    # Deletion: once subscriptions and invoices exist, they will reference Customer with
-    # on_delete=PROTECT, so deleting a customer with records will be blocked by the database.
+    def perform_destroy(self, instance):
+        # Subscriptions reference the customer with PROTECT. Explain this instead of a server error.
+        if instance.subscriptions.exists():
+            raise ValidationError(
+                {"detail": ["This customer has subscriptions. Cancel them before deleting the customer."]}
+            )
+        instance.delete()
 
 
 class LinkableUserListView(generics.ListAPIView):

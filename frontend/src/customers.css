@@ -200,3 +200,24 @@ table.customers tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+.badge-cancelled,
+.badge-expired {
+  background: #ecebea;
+  color: #5b5752;
+}
+
+.badge-pending {
+  background: #fdf3dc;
+  color: #7a5a12;
+}
+
+.badge-paid {
+  background: #e4f3e8;
+  color: #2d6a3e;
+}
+
+.badge-overdue {
+  background: #fbe3e1;
+  color: #9b2c24;
+}

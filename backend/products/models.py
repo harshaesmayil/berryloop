@@ -97,8 +97,7 @@ class Plan(models.Model):
     def is_in_use(self):
         """True when subscriptions use this plan, so it must not be deleted.
 
-        Subscriptions are not built yet, so this returns False for now. When the
-        Subscription model is added it will reference Plan with PROTECT, and this
-        method will check for it.
+        Subscription.plan is PROTECT, so the database would refuse the delete anyway.
+        This check gives the user a clear message before that happens.
         """
-        return False
+        return self.subscriptions.exists()
