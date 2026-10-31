@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
@@ -46,16 +47,37 @@ export default function Register() {
         <p className="muted">Start managing your business subscriptions in minutes.</p>
 
         <form onSubmit={handleSubmit} className="form">
-          <div className="form-row">
-            <label>
+          <div
+            className="form-row"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: "16px",
+              width: "100%",
+              boxSizing: "border-box"
+            }}
+          >
+            <label style={{ minWidth: 0 }}>
               First name
-              <input name="first_name" value={form.first_name} onChange={updateField} />
+              <input
+                name="first_name"
+                value={form.first_name}
+                onChange={updateField}
+                style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}
+              />
             </label>
-            <label>
+
+            <label style={{ minWidth: 0 }}>
               Last name
-              <input name="last_name" value={form.last_name} onChange={updateField} />
+              <input
+                name="last_name"
+                value={form.last_name}
+                onChange={updateField}
+                style={{ width: "100%", minWidth: 0, boxSizing: "border-box" }}
+              />
             </label>
           </div>
+
           <label>
             Work email
             <input
@@ -68,6 +90,7 @@ export default function Register() {
             />
             {errors.email && <span className="form-error">{errors.email}</span>}
           </label>
+
           <label>
             Password
             <input
@@ -80,9 +103,14 @@ export default function Register() {
             />
             {errors.password && <span className="form-error">{errors.password}</span>}
           </label>
-          <p className="muted small">At least 10 characters, not too common, and not similar to your name or email.</p>
 
-          {errors.general && <p className="form-error" role="alert">{errors.general}</p>}
+          <p className="muted small">
+            At least 10 characters, not too common, and not similar to your name or email.
+          </p>
+
+          {errors.general && (
+            <p className="form-error" role="alert">{errors.general}</p>
+          )}
 
           <button type="submit" className="btn btn-primary" disabled={submitting}>
             {submitting ? "Creating account…" : "Create account"}
