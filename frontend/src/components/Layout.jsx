@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
+import Logo from "./Logo.jsx";
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -7,7 +8,7 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <span className="wordmark">Berryloop</span>
+        <Logo size="small" />
         <nav className="topnav" aria-label="Main">
           <NavLink to="/" end>
             Dashboard

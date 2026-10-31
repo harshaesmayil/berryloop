@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
+import Logo from "../components/Logo.jsx";
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -29,7 +30,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <span className="wordmark wordmark-large">Berryloop</span>
+        <Logo size="large" />
         <h1>Welcome back</h1>
         <p className="muted">Sign in to manage your subscriptions.</p>
 
