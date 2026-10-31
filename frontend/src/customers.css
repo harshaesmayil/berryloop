@@ -1,0 +1,223 @@
+/* Shared styles for the customer pages. Kept separate from styles.css. */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.toolbar input,
+.toolbar select,
+.field input,
+.field select,
+.field textarea {
+  font: inherit;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffdfb;
+  color: var(--ink);
+}
+
+.toolbar input {
+  flex: 1 1 240px;
+}
+
+.table-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+table.customers {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+table.customers th,
+table.customers td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+table.customers th {
+  color: var(--velvet);
+  font-weight: 700;
+  background: #fffaf6;
+}
+
+table.customers tr:last-child td {
+  border-bottom: none;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.badge-active {
+  background: #e4f3e8;
+  color: #2d6a3e;
+}
+
+.badge-inactive {
+  background: var(--blush);
+  color: var(--velvet);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  gap: 1rem;
+}
+
+.empty-state {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.notice {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.notice-error {
+  background: #fbe9eb;
+  color: var(--berry);
+}
+
+.notice-success {
+  background: #e4f3e8;
+  color: #2d6a3e;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+}
+
+.form-grid .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--velvet);
+  min-width: 0;
+}
+
+.form-grid .field.wide {
+  grid-column: 1 / -1;
+}
+
+.field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.field .field-error {
+  color: var(--berry);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.detail-item {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.detail-item dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-item dd {
+  margin: 0.25rem 0 0;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--berry);
+  border: 1px solid var(--berry);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #fbe9eb;
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.badge-cancelled,
+.badge-expired {
+  background: #ecebea;
+  color: #5b5752;
+}
+
+.badge-pending {
+  background: #fdf3dc;
+  color: #7a5a12;
+}
+
+.badge-paid {
+  background: #e4f3e8;
+  color: #2d6a3e;
+}
+
+.badge-overdue {
+  background: #fbe3e1;
+  color: #9b2c24;
+}
