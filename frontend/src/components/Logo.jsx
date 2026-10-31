@@ -10,8 +10,8 @@ export default function Logo({ size = "small" }) {
         src="/berryloop-full-logo.png"
         alt="Berryloop Software Solutions logo"
         className="brand-logo brand-logo-full"
-        width={260}
-        height={260}
+        width={1362}
+        height={1028}
       />
     );
   }
