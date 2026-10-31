@@ -1,6 +1,6 @@
 # Berryloop: Repository Audit and Architecture Notes
 
-Status: **Draft. Architecture is NOT final.** It depends on confirming the Odoo hosting restrictions (see section 5).
+Status: **Proposal, awaiting approval.** Section 7 is the current recommendation. Sections 3–6 are kept as earlier notes. Earlier assumption: Berryloop must be an Odoo custom module. **This is superseded:** the Make-A-Ton rules allow any programming language, and the Odoo site is an optional design reference only.
 
 ---
 
@@ -106,3 +106,90 @@ You received a GitHub notice that Odoo.sh was authorized to access your GitHub a
 3. Who is the hackathon organizer contact who can confirm this?
 
 Nothing in this document starts application development. Development stays paused until these are answered.
+
+---
+
+## 7. Updated architecture assessment (current recommendation)
+
+### 7.1 Facts we are working from
+
+- The hackathon account on `mits-kochi.odoo.com` was created by the team member on a free trial. The organizers did not provide it or require Odoo.
+- Make-A-Ton 9.0 rules, as reported by the team: all programming languages are welcome. Mandatory: dynamic data, responsive UI, validation, intuitive navigation, proper Git use. Backend APIs and local databases are nice-to-haves.
+- **Decision:** Berryloop is a standalone application. The Odoo site is only a design reference for layout ideas.
+
+### 7.2 Option 1: Standalone full-stack app (React + Django + PostgreSQL)
+
+**Plain-language parts:**
+- **React:** the part the user sees (pages, buttons, forms, charts).
+- **Django (Python 3.12):** the "brain" on the server. It stores data, checks rules, calculates invoices, and decides who can see what.
+- **PostgreSQL:** the database where all records live.
+
+**Advantages**
+- Meets every mandatory requirement with real, dynamic data.
+- Django has a built-in admin, user accounts, password reset, and an ORM (ready-made tools for storing and querying data). This saves a lot of time.
+- Django's model system makes role permissions and date-based billing easier to test.
+- Testing is strong (Django test runner, pytest).
+- Works on any hosting, and can run on a laptop for the demo.
+- React gives a polished, responsive UI, which judges will notice.
+
+**Disadvantages**
+- Two codebases to run (frontend and backend), plus a database. More setup for a beginner.
+- Time-consuming to build a full app in a hackathon window.
+- Needs careful handling of login between the React frontend and the Django backend.
+
+### 7.3 Option 2: Single-framework app (Django templates only)
+
+- Django renders the HTML pages itself, with a little JavaScript for charts.
+- **Advantages:** one codebase, one language, easiest for a beginner, fastest to a working demo.
+- **Disadvantages:** less flexible-looking UI than React; still needs careful design work for a "premium" look.
+
+### 7.4 Option 3: Odoo-based implementation
+
+- Use Odoo's built-in Website, Subscriptions, Invoicing and Payments apps on the trial account.
+- **Advantages:** very fast billing, invoicing and payments already exist.
+- **Disadvantages:**
+  - Free trial may not include all apps, and paid apps may be required (to be checked on the Odoo site; not verified).
+  - Custom rules (custom discount logic, custom pause/cancel permissions) are hard within standard Odoo.
+  - The team's own account is not an organizer-provided environment, so judges may question whether it is "the official" build.
+  - Hard to show our own code and architecture, which the brief asks us to document.
+
+### 7.5 Comparison
+
+| Area | React + Django + PostgreSQL | Django templates only | Odoo-based |
+|---|---|---|---|
+| Meets mandatory rules | Yes | Yes | Mostly |
+| Custom billing rules | Full control | Full control | Limited |
+| Shows our own code | Yes | Yes | Limited |
+| Beginner friendly | Medium | High | Medium |
+| Time to working demo | Longer | Shortest of the code options | Short, but unclear cost/limits |
+| Responsive, premium UI | Strongest | Good with care | Limited by theme |
+
+### 7.6 Recommendation
+
+**Use Django (Python 3.12) + PostgreSQL for the backend, with a React frontend.**
+
+Reasons:
+1. It meets the full brief with real code, real data, and real rules.
+2. Django already provides login, roles, admin screens, and database tools.
+3. React gives the premium, responsive look the brief asks for.
+4. It doesn't depend on a trial account or paid Odoo apps.
+
+**Fallback, if time runs short:** keep Django and PostgreSQL but use Django templates instead of React for the frontend. The backend stays the same, so this is a small change.
+
+**Demo plan:** PostgreSQL in Docker (or SQLite for a quick local demo), seeded sample data, and a single command to start the app.
+
+### 7.7 Proposed design notes (for approval)
+
+- **Billing:** a Django management command creates invoices for each subscription's next billing period, and a database check prevents duplicates for the same period.
+- **Payments:** recorded manually by staff (no real payment gateway). Partial payments update the outstanding balance.
+- **Roles:** Django groups for Admin, Staff and Customer, enforced on the server.
+- **Public site data:** products and plans come from the database, not hardcoded in React.
+- **Repository:** keep `main` stable. Build on `feature/berryloop-rebrand` or a new feature branch. Keep the existing README and docs.
+
+### 7.8 What needs your approval
+
+1. Standalone React + Django + PostgreSQL (recommended), or Django templates only.
+2. Whether to keep the Odoo trial account as a design reference only.
+3. Whether the demo can run locally with Docker.
+
+No implementation will start until you approve.
