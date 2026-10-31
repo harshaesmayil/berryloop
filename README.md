@@ -1,4 +1,4 @@
-# Brightloop Subscription Management System
+# Berryloop Subscription Management System
 
 Developed for Odoo x Make-A-Ton 9.0 Hackathon 2026.
 
