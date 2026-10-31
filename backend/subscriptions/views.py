@@ -13,9 +13,9 @@ from rest_framework.views import APIView
 from customers.models import Customer
 from products.models import Plan, Product
 
-from .models import Invoice, Subscription
+from .models import Invoice, Payment, Subscription
 from .permissions import BillingAccess
-from .serializers import InvoiceSerializer, SubscriptionSerializer
+from .serializers import InvoiceSerializer, PaymentSerializer, SubscriptionSerializer
 
 # Converts a plan price to a monthly amount for MRR. Approximate: a year is 12 months, a quarter is 3.
 MONTHLY_FACTOR = {
@@ -104,16 +104,51 @@ class InvoiceDetailView(generics.RetrieveUpdateAPIView):
 
 
 class InvoiceMarkPaidView(APIView):
+    """Records the remaining balance as a payment and marks the invoice paid."""
+
     permission_classes = [IsAuthenticated, BillingAccess]
 
     def post(self, request, pk):
-        invoice = get_object_or_404(Invoice.objects.select_related("subscription__customer", "subscription__plan__product"), pk=pk)
-        if invoice.status == Invoice.Status.PAID:
-            raise ValidationError({"detail": ["This invoice is already paid."]})
-        invoice.status = Invoice.Status.PAID
-        invoice.paid_at = timezone.now()
-        invoice.save(update_fields=["status", "paid_at", "updated_at"])
+        with transaction.atomic():
+            invoice = get_object_or_404(Invoice.objects.select_for_update(), pk=pk)
+            if invoice.status == Invoice.Status.PAID:
+                raise ValidationError({"detail": ["This invoice is already paid."]})
+            balance = invoice.balance_due()
+            if balance > 0:
+                Payment.objects.create(
+                    invoice=invoice, amount=balance, method=Payment.Method.OTHER,
+                    note="Marked as paid",
+                )
+            invoice.status = Invoice.Status.PAID
+            invoice.paid_at = timezone.now()
+            invoice.save(update_fields=["status", "paid_at", "updated_at"])
+        invoice = Invoice.objects.select_related("subscription__customer", "subscription__plan__product").get(pk=pk)
         return Response(InvoiceSerializer(invoice).data, status=status.HTTP_200_OK)
+
+
+class PaymentListCreateView(generics.ListCreateAPIView):
+    serializer_class = PaymentSerializer
+    permission_classes = [IsAuthenticated, BillingAccess]
+
+    def get_queryset(self):
+        queryset = Payment.objects.select_related("invoice")
+        invoice_value = self.request.query_params.get("invoice", "").strip()
+        if invoice_value.isdigit():
+            queryset = queryset.filter(invoice_id=int(invoice_value))
+        return queryset
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            # Lock the invoice so two payments cannot both pass the balance check.
+            invoice = Invoice.objects.select_for_update().get(pk=serializer.validated_data["invoice"].pk)
+            if serializer.validated_data["amount"] > invoice.balance_due():
+                raise ValidationError({"amount": ["Amount is more than the balance due."]})
+            payment = serializer.save()
+            if invoice.balance_due() <= 0:
+                invoice.status = Invoice.Status.PAID
+                invoice.paid_at = timezone.now()
+                invoice.save(update_fields=["status", "paid_at", "updated_at"])
+            return payment
 
 
 class DashboardSummaryView(APIView):

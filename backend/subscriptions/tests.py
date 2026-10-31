@@ -9,7 +9,7 @@ from accounts.models import User
 from customers.models import Customer
 from products.models import Plan, Product
 
-from .models import Invoice, Subscription, add_billing_interval
+from .models import Invoice, Payment, Subscription, add_billing_interval
 
 PASSWORD = "Str0ng-Berry-Pass!"
 
@@ -230,3 +230,49 @@ class AddIntervalTests(BillingTestBase):
         self.assertEqual(add_billing_interval(date(2026, 3, 15), "quarterly"), date(2026, 6, 15))
         self.assertEqual(add_billing_interval(date(2026, 12, 10), "monthly"), date(2027, 1, 10))
         self.assertEqual(add_billing_interval(date(2026, 2, 28), "yearly"), date(2027, 2, 28))
+
+
+class PaymentTests(BillingTestBase):
+    def make_invoice(self, amount="500.00"):
+        return Invoice.objects.create(subscription=self.make_subscription(), amount=amount, due_date=timezone.localdate())
+
+    def test_partial_then_full_payment_marks_invoice_paid(self):
+        invoice = self.make_invoice()
+        first = self.client.post("/api/payments/", {"invoice": invoice.pk, "amount": "200.00", "method": "cash"}, format="json")
+        self.assertEqual(first.status_code, 201)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "pending")
+        self.assertEqual(str(invoice.balance_due()), "300.00")
+        second = self.client.post("/api/payments/", {"invoice": invoice.pk, "amount": "300.00", "method": "card"}, format="json")
+        self.assertEqual(second.status_code, 201)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "paid")
+        self.assertIsNotNone(invoice.paid_at)
+
+    def test_overpayment_rejected(self):
+        invoice = self.make_invoice()
+        response = self.client.post("/api/payments/", {"invoice": invoice.pk, "amount": "600.00"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("amount", response.data)
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_payment_on_paid_invoice_rejected(self):
+        invoice = self.make_invoice()
+        self.client.post(f"/api/invoices/{invoice.pk}/mark-paid/")
+        response = self.client.post("/api/payments/", {"invoice": invoice.pk, "amount": "1.00"}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_mark_paid_records_remaining_balance(self):
+        invoice = self.make_invoice()
+        self.client.post("/api/payments/", {"invoice": invoice.pk, "amount": "100.00"}, format="json")
+        response = self.client.post(f"/api/invoices/{invoice.pk}/mark-paid/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["balance_due"], "0.00")
+        self.assertEqual(response.data["amount_paid"], "500.00")
+
+    def test_payments_filter_by_invoice_and_customer_blocked(self):
+        invoice = self.make_invoice()
+        self.client.post("/api/payments/", {"invoice": invoice.pk, "amount": "50.00"}, format="json")
+        self.assertEqual(self.client.get("/api/payments/", {"invoice": invoice.pk}).data["count"], 1)
+        self.login(self.customer_login)
+        self.assertEqual(self.client.get("/api/payments/").status_code, 403)

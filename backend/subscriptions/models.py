@@ -104,8 +104,38 @@ class Invoice(models.Model):
     def customer(self):
         return self.subscription.customer
 
+    def amount_paid(self):
+        return sum((p.amount for p in self.payments.all()), Decimal("0.00"))
+
+    def balance_due(self):
+        return self.amount - self.amount_paid()
+
     def effective_status(self, today=None):
         if self.status == self.Status.PAID:
             return "paid"
         today = today or timezone.localdate()
         return "overdue" if self.due_date < today else "pending"
+
+
+class Payment(models.Model):
+    class Method(models.TextChoices):
+        BANK_TRANSFER = "bank_transfer", "Bank transfer"
+        CARD = "card", "Card"
+        CASH = "cash", "Cash"
+        CHEQUE = "cheque", "Cheque"
+        OTHER = "other", "Other"
+
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="payments")
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    method = models.CharField(max_length=20, choices=Method.choices, default=Method.OTHER)
+    paid_on = models.DateField(default=timezone.localdate)
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-paid_on", "-id"]
+
+    def __str__(self):
+        return f"{self.invoice} - {self.amount}"

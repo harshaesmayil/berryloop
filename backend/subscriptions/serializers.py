@@ -6,7 +6,7 @@ from rest_framework import serializers
 from customers.models import Customer
 from products.models import Plan
 
-from .models import Invoice, Subscription, add_billing_interval
+from .models import Invoice, Payment, Subscription, add_billing_interval
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
@@ -61,13 +61,15 @@ class InvoiceSerializer(serializers.ModelSerializer):
     subscription_label = serializers.SerializerMethodField()
     customer_name = serializers.CharField(source="subscription.customer.name", read_only=True)
     effective_status = serializers.SerializerMethodField()
+    amount_paid = serializers.SerializerMethodField()
+    balance_due = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
         fields = [
             "id", "invoice_number", "subscription", "subscription_label", "customer_name",
             "amount", "currency", "issue_date", "due_date", "status", "effective_status",
-            "paid_at", "created_at", "updated_at",
+            "amount_paid", "balance_due", "paid_at", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "invoice_number", "status", "paid_at", "created_at", "updated_at"]
         extra_kwargs = {
@@ -83,6 +85,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
     def get_effective_status(self, obj):
         return obj.effective_status()
 
+    def get_amount_paid(self, obj):
+        return str(obj.amount_paid())
+
+    def get_balance_due(self, obj):
+        return str(obj.balance_due())
+
     def validate(self, attrs):
         if self.instance is None:
             subscription = attrs.get("subscription")
@@ -94,4 +102,22 @@ class InvoiceSerializer(serializers.ModelSerializer):
             attrs.setdefault("due_date", issue + timedelta(days=7))
             if attrs["due_date"] < attrs["issue_date"]:
                 raise serializers.ValidationError({"due_date": ["Due date cannot be before the issue date."]})
+        return attrs
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ["id", "invoice", "amount", "method", "paid_on", "note", "created_at"]
+        read_only_fields = ["id", "created_at"]
+        extra_kwargs = {"invoice": {"queryset": Invoice.objects.all()}}
+
+    def validate(self, attrs):
+        invoice = attrs["invoice"]
+        if invoice.status == Invoice.Status.PAID:
+            raise serializers.ValidationError({"invoice": ["This invoice is already paid."]})
+        if attrs["amount"] > invoice.balance_due():
+            raise serializers.ValidationError(
+                {"amount": [f"Amount is more than the balance due ({invoice.balance_due()})."]}
+            )
         return attrs
