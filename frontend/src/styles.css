@@ -283,6 +283,14 @@ a:hover {
   margin: 0 auto 0.75rem;
 }
 
+.brand-logo-full {
+  width: 220px;
+  height: 220px;
+  max-width: 100%;
+  margin: 0 auto 0.5rem;
+  border-radius: 0;
+}
+
 /* Small screens */
 @media (max-width: 640px) {
   .topbar {

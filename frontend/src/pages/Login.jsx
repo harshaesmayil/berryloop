@@ -30,7 +30,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <Logo size="large" />
+        <Logo size="full" />
         <h1>Welcome back</h1>
         <p className="muted">Sign in to manage your subscriptions.</p>
 

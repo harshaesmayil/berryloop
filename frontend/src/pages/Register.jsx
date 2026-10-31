@@ -42,7 +42,7 @@ export default function Register() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <Logo size="large" />
+        <Logo size="full" />
         <h1>Create your account</h1>
         <p className="muted">Start managing your business subscriptions in minutes.</p>
 
