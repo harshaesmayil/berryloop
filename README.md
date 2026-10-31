@@ -3,7 +3,7 @@
 Developed for Odoo x Make-A-Ton 9.0 Hackathon 2026.
 
 ## Project Overview
-A subscription management system designed for Brightloop Software.
+A subscription management system designed for Berryloop Software.
 
 ## Features
 - User authentication and role-based access
