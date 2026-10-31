@@ -1,4 +1,5 @@
 // Shared helpers for the products, plans, subscriptions and invoices pages.
+import { createElement } from "react";
 import { apiRequest } from "./api.js";
 
 // Loads every page of a paginated list endpoint. The path may include filters, e.g. "/plans/?status=active".
@@ -60,6 +61,7 @@ export function fieldErrorsFrom(err) {
   return errors;
 }
 
+// Plain React call instead of JSX, because this file is .js and Vite cannot parse JSX in .js files.
 export function StatusBadge({ value }) {
-  return <span className={`badge badge-${value}`}>{STATUS_LABELS[value] || value}</span>;
+  return createElement("span", { className: `badge badge-${value}` }, STATUS_LABELS[value] || value);
 }
