@@ -66,6 +66,9 @@ export default function Login() {
         <p className="muted">
           New to Berryloop? <Link to="/register">Create an account</Link>
         </p>
+        <p className="muted">
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
       </div>
     </div>
   );

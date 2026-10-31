@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
@@ -13,9 +13,17 @@ from rest_framework.views import APIView
 from customers.models import Customer
 from products.models import Plan, Product
 
-from .models import Invoice, Payment, Subscription
-from .permissions import BillingAccess
-from .serializers import InvoiceSerializer, PaymentSerializer, SubscriptionSerializer
+from .models import DiscountRule, Invoice, Payment, Subscription, TaxRule, compute_invoice_totals
+from accounts.models import User
+
+from .permissions import AdminWriteStaffRead, BillingAccess
+from .serializers import (
+    DiscountRuleSerializer,
+    InvoiceSerializer,
+    PaymentSerializer,
+    SubscriptionSerializer,
+    TaxRuleSerializer,
+)
 
 # Converts a plan price to a monthly amount for MRR. Approximate: a year is 12 months, a quarter is 3.
 MONTHLY_FACTOR = {
@@ -37,9 +45,12 @@ def parse_choice(params, name, allowed):
 class SubscriptionListCreateView(generics.ListCreateAPIView):
     serializer_class = SubscriptionSerializer
     permission_classes = [IsAuthenticated, BillingAccess]
+    customer_read = True
 
     def get_queryset(self):
         queryset = Subscription.objects.select_related("customer", "plan__product")
+        if self.request.user.role == User.Role.CUSTOMER:
+            queryset = queryset.filter(customer__user=self.request.user)
         params = self.request.query_params
         status_value = parse_choice(params, "status", Subscription.Status.values)
         if status_value:
@@ -61,18 +72,25 @@ class SubscriptionListCreateView(generics.ListCreateAPIView):
 class SubscriptionDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = SubscriptionSerializer
     permission_classes = [IsAuthenticated, BillingAccess]
+    customer_read = True
     http_method_names = ["get", "patch", "head", "options"]  # Subscriptions are cancelled, not deleted.
 
     def get_queryset(self):
-        return Subscription.objects.select_related("customer", "plan__product")
+        queryset = Subscription.objects.select_related("customer", "plan__product")
+        if self.request.user.role == User.Role.CUSTOMER:
+            queryset = queryset.filter(customer__user=self.request.user)
+        return queryset
 
 
 class InvoiceListCreateView(generics.ListCreateAPIView):
     serializer_class = InvoiceSerializer
     permission_classes = [IsAuthenticated, BillingAccess]
+    customer_read = True
 
     def get_queryset(self):
         queryset = Invoice.objects.select_related("subscription__customer", "subscription__plan__product")
+        if self.request.user.role == User.Role.CUSTOMER:
+            queryset = queryset.filter(subscription__customer__user=self.request.user)
         params = self.request.query_params
         today = timezone.localdate()
         status_value = parse_choice(params, "status", ["pending", "paid", "overdue"])
@@ -91,10 +109,14 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
 class InvoiceDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = InvoiceSerializer
     permission_classes = [IsAuthenticated, BillingAccess]
+    customer_read = True
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_queryset(self):
-        return Invoice.objects.select_related("subscription__customer", "subscription__plan__product")
+        queryset = Invoice.objects.select_related("subscription__customer", "subscription__plan__product")
+        if self.request.user.role == User.Role.CUSTOMER:
+            queryset = queryset.filter(subscription__customer__user=self.request.user)
+        return queryset
 
     def perform_update(self, serializer):
         # Only amount and dates can be edited. Payment status goes through mark-paid.
@@ -202,3 +224,28 @@ class DashboardSummaryView(APIView):
                 for i in recent_invoices
             ],
         })
+
+
+class TaxRuleListCreateView(generics.ListCreateAPIView):
+    serializer_class = TaxRuleSerializer
+    permission_classes = [IsAuthenticated, AdminWriteStaffRead]
+    queryset = TaxRule.objects.all()
+    pagination_class = None
+
+
+class TaxRuleDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = TaxRuleSerializer
+    permission_classes = [IsAuthenticated, AdminWriteStaffRead]
+    queryset = TaxRule.objects.all()
+
+
+class DiscountRuleListCreateView(generics.ListCreateAPIView):
+    serializer_class = DiscountRuleSerializer
+    permission_classes = [IsAuthenticated, AdminWriteStaffRead]
+    queryset = DiscountRule.objects.select_related("product")
+
+
+class DiscountRuleDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = DiscountRuleSerializer
+    permission_classes = [IsAuthenticated, AdminWriteStaffRead]
+    queryset = DiscountRule.objects.select_related("product")

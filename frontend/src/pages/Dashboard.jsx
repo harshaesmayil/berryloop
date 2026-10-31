@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "../auth.jsx";
 import { apiRequest } from "../api.js";
 import { StatusBadge, formatMoney } from "../billing.js";
 import "../customers.css";
@@ -11,10 +12,12 @@ function moneyLines(byCurrency) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (user.role === "customer") return undefined;
     let active = true;
     apiRequest("/dashboard/summary/")
       .then((result) => active && setSummary(result))
@@ -22,8 +25,9 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user.role]);
 
+  if (user.role === "customer") return <Navigate to="/portal" replace />;
   if (error) return <p className="notice notice-error" role="alert">{error}</p>;
   if (!summary) return <p className="page-status">Loading dashboard…</p>;
 

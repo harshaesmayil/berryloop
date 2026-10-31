@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Invoice, Payment, Subscription
+from .models import DiscountRule, Invoice, Payment, Subscription, TaxRule
 
 
 @admin.register(Subscription)
@@ -19,3 +19,13 @@ class InvoiceAdmin(admin.ModelAdmin):
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ("invoice", "amount", "method", "paid_on")
     list_filter = ("method",)
+
+
+@admin.register(TaxRule)
+class TaxRuleAdmin(admin.ModelAdmin):
+    list_display = ("name", "rate", "active")
+
+
+@admin.register(DiscountRule)
+class DiscountRuleAdmin(admin.ModelAdmin):
+    list_display = ("name", "kind", "value", "scope", "start_date", "end_date", "times_used", "active")

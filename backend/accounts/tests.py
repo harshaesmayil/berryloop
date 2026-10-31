@@ -99,3 +99,50 @@ class PermissionTests(TestCase):
         request = RequestFactory().get("/")
         request.user = admin_user
         self.assertTrue(IsAdminRole().has_permission(request, None))
+
+
+class PasswordPolicyAndStaffTests(TestCase):
+    def test_password_needs_upper_lower_and_special_character(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        for weak in ["alllowercase1!", "ALLUPPERCASE1!", "NoSpecialChar1", "Short1!"]:
+            response = client.post(
+                "/api/auth/register/", {"email": f"p{len(weak)}@x.com", "password": weak}, format="json"
+            )
+            self.assertEqual(response.status_code, 400, weak)
+            self.assertIn("password", response.data)
+
+    def test_only_admin_can_create_staff(self):
+        from rest_framework.authtoken.models import Token
+        from rest_framework.test import APIClient
+        staff = User.objects.create_user(username="st@x.com", email="st@x.com", password=STRONG_PASSWORD, role="staff")
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Token {Token.objects.get_or_create(user=staff)[0].key}")
+        body = {"email": "new@x.com", "password": STRONG_PASSWORD, "first_name": "New"}
+        self.assertEqual(client.post("/api/auth/staff/", body, format="json").status_code, 403)
+        admin = User.objects.create_user(username="ad@x.com", email="ad@x.com", password=STRONG_PASSWORD, role="admin")
+        client.credentials(HTTP_AUTHORIZATION=f"Token {Token.objects.get_or_create(user=admin)[0].key}")
+        response = client.post("/api/auth/staff/", body, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["role"], "staff")
+
+    def test_password_reset_request_gives_same_answer_for_unknown_email(self):
+        from rest_framework.test import APIClient
+        response = APIClient().post("/api/auth/password-reset/", {"email": "nobody@x.com"}, format="json")
+        self.assertEqual(response.status_code, 200)
+
+    def test_password_reset_confirm_sets_new_password(self):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+        from rest_framework.test import APIClient
+        user = User.objects.create_user(username="r@x.com", email="r@x.com", password=STRONG_PASSWORD)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        client = APIClient()
+        bad = client.post("/api/auth/password-reset/confirm/", {"uid": uid, "token": "bad", "password": "New-Pass-1!x"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        ok = client.post("/api/auth/password-reset/confirm/", {"uid": uid, "token": token, "password": "New-Pass-1!x"}, format="json")
+        self.assertEqual(ok.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("New-Pass-1!x"))

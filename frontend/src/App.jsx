@@ -7,7 +7,11 @@ import Customers from "./pages/Customers.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Invoices from "./pages/Invoices.jsx";
 import InvoiceDetail from "./pages/InvoiceDetail.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
 import Login from "./pages/Login.jsx";
+import Portal from "./pages/Portal.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
+import Settings from "./pages/Settings.jsx";
 import PlanDetail from "./pages/PlanDetail.jsx";
 import PlanForm from "./pages/PlanForm.jsx";
 import Plans from "./pages/Plans.jsx";
@@ -32,6 +36,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/"
         element={
@@ -58,6 +64,8 @@ export default function App() {
         <Route path="subscriptions/:id" element={<SubscriptionDetail />} />
         <Route path="invoices" element={<Invoices />} />
         <Route path="invoices/:id" element={<InvoiceDetail />} />
+        <Route path="portal" element={<Portal />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

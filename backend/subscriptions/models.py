@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -63,6 +63,10 @@ class Invoice(models.Model):
         Subscription, on_delete=models.PROTECT, related_name="invoices"
     )
     invoice_number = models.CharField(max_length=30, unique=True, blank=True)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    # amount is the total payable: subtotal - discount + tax.
     amount = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
@@ -139,3 +143,87 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.invoice} - {self.amount}"
+
+
+class TaxRule(models.Model):
+    """A tax percentage added to every invoice while the rule is active. Admin sets these."""
+
+    name = models.CharField(max_length=100)
+    rate = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return f"{self.name} ({self.rate}%)"
+
+
+class DiscountRule(models.Model):
+    """A fixed or percentage discount. Admin creates these; they apply automatically to invoices."""
+
+    class Kind(models.TextChoices):
+        PERCENT = "percent", "Percentage"
+        FIXED = "fixed", "Fixed amount"
+
+    class Scope(models.TextChoices):
+        ALL = "all", "Whole subscription"
+        PRODUCT = "product", "Specific product"
+
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.PERCENT)
+    value = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    scope = models.CharField(max_length=10, choices=Scope.choices, default=Scope.ALL)
+    product = models.ForeignKey(
+        "products.Product", null=True, blank=True, on_delete=models.PROTECT, related_name="discount_rules"
+    )
+    min_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    start_date = models.DateField(default=timezone.localdate)
+    end_date = models.DateField()
+    usage_limit = models.PositiveIntegerField(null=True, blank=True)
+    times_used = models.PositiveIntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+    def applies_to(self, plan, subtotal, today):
+        if not self.active or not (self.start_date <= today <= self.end_date):
+            return False
+        if self.usage_limit is not None and self.times_used >= self.usage_limit:
+            return False
+        if subtotal < self.min_amount:
+            return False
+        if self.scope == self.Scope.PRODUCT and self.product_id != plan.product_id:
+            return False
+        return True
+
+    def amount_for(self, subtotal):
+        if self.kind == self.Kind.PERCENT:
+            return (subtotal * self.value / Decimal("100")).quantize(Decimal("0.01"))
+        return min(self.value, subtotal)
+
+
+def compute_invoice_totals(subscription, today=None):
+    """Work out subtotal, discounts, tax and total from the plan and the admin's rules."""
+    today = today or timezone.localdate()
+    plan = subscription.plan
+    subtotal = plan.price
+    rules = [r for r in DiscountRule.objects.all() if r.applies_to(plan, subtotal, today)]
+    discount = min(sum((r.amount_for(subtotal) for r in rules), Decimal("0.00")), subtotal)
+    net = subtotal - discount
+    tax_rate = sum((t.rate for t in TaxRule.objects.filter(active=True)), Decimal("0"))
+    tax = (net * tax_rate / Decimal("100")).quantize(Decimal("0.01"))
+    return {
+        "subtotal": subtotal,
+        "discount_amount": discount,
+        "tax_amount": tax,
+        "amount": net + tax,
+        "applied_rules": rules,
+    }

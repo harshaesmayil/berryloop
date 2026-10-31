@@ -62,3 +62,25 @@ class RegisterSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
+
+
+class StaffCreateSerializer(RegisterSerializer):
+    """Used by an admin to add a staff member. Same password and email rules as sign-up."""
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        user = User(username=validated_data["email"], role=User.Role.STAFF, **validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+
+class PasswordSetSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+
+    def validate(self, attrs):
+        try:
+            validate_password(attrs["password"], user=self.context.get("user"))
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)})
+        return attrs

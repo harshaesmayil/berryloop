@@ -28,6 +28,10 @@ export default function Layout() {
           {(user.role === "admin" || user.role === "staff") && (
             <NavLink to="/invoices">Invoices</NavLink>
           )}
+          {(user.role === "admin" || user.role === "staff") && (
+            <NavLink to="/settings">Settings</NavLink>
+          )}
+          {user.role === "customer" && <NavLink to="/portal">My subscriptions</NavLink>}
         </nav>
         <div className="topbar-user">
           <span className="user-email">{user.email}</span>

@@ -93,11 +93,18 @@ AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    # Brief: more than eight characters, with an uppercase, a lowercase and a special character.
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-     "OPTIONS": {"min_length": 10}},
+     "OPTIONS": {"min_length": 9}},
+    {"NAME": "accounts.validators.ComplexityValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# Password reset emails. In development they print to the backend terminal.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Berryloop <no-reply@berryloop.local>")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"

@@ -112,11 +112,64 @@ class SubscriptionTests(BillingTestBase):
         self.assertEqual(response.status_code, 400)
         self.assertTrue(Customer.objects.filter(pk=self.acme.pk).exists())
 
-    def test_customer_role_has_no_billing_access(self):
+    def test_customer_role_is_read_only_and_limited_to_own_records(self):
         self.login(self.customer_login)
-        self.assertEqual(self.client.get("/api/subscriptions/").status_code, 403)
-        self.assertEqual(self.client.get("/api/invoices/").status_code, 403)
+        self.assertEqual(self.client.get("/api/subscriptions/").status_code, 200)
+        self.assertEqual(self.client.get("/api/invoices/").status_code, 200)
         self.assertEqual(self.client.get("/api/dashboard/summary/").status_code, 403)
+        self.assertEqual(
+            self.client.post("/api/subscriptions/", {"customer": self.acme.pk, "plan": self.pro.pk}, format="json").status_code,
+            403,
+        )
+
+    def test_customer_sees_only_their_own_subscriptions(self):
+        self.acme.user = self.customer_login
+        self.acme.save()
+        other = Customer.objects.create(name="Other Co", email="other@x.com")
+        Subscription.objects.create(customer=other, plan=self.pro, start_date=timezone.localdate(), next_billing_date=timezone.localdate())
+        self.make_subscription()
+        self.login(self.customer_login)
+        response = self.client.get("/api/subscriptions/")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["customer_name"], "Acme Ltd")
+
+    def test_only_admin_can_create_tax_rules(self):
+        self.login(self.staff)
+        self.assertEqual(self.client.post("/api/tax-rules/", {"name": "GST", "rate": "18"}, format="json").status_code, 403)
+        self.assertEqual(self.client.get("/api/tax-rules/").status_code, 200)
+        self.login(self.admin)
+        self.assertEqual(self.client.post("/api/tax-rules/", {"name": "GST", "rate": "18"}, format="json").status_code, 201)
+
+    def test_active_tax_rule_is_added_to_new_invoices(self):
+        from .models import TaxRule
+        TaxRule.objects.create(name="GST", rate="18.00")
+        subscription = self.make_subscription()
+        response = self.client.post("/api/invoices/", {"subscription": subscription.pk}, format="json")
+        self.assertEqual(response.data["tax_amount"], "90.00")
+        self.assertEqual(response.data["amount"], "590.00")
+
+    def test_percentage_discount_applies_and_counts_usage(self):
+        from .models import DiscountRule
+        rule = DiscountRule.objects.create(
+            name="10 off", kind="percent", value="10", scope="all",
+            end_date=timezone.localdate() + timedelta(days=30),
+        )
+        subscription = self.make_subscription()
+        response = self.client.post("/api/invoices/", {"subscription": subscription.pk}, format="json")
+        self.assertEqual(response.data["discount_amount"], "50.00")
+        self.assertEqual(response.data["amount"], "450.00")
+        rule.refresh_from_db()
+        self.assertEqual(rule.times_used, 1)
+
+    def test_discount_with_used_up_limit_is_not_applied(self):
+        from .models import DiscountRule
+        DiscountRule.objects.create(
+            name="Used up", kind="fixed", value="100", scope="all", usage_limit=1, times_used=1,
+            end_date=timezone.localdate() + timedelta(days=30),
+        )
+        subscription = self.make_subscription()
+        response = self.client.post("/api/invoices/", {"subscription": subscription.pk}, format="json")
+        self.assertEqual(response.data["discount_amount"], "0.00")
 
     def test_staff_can_create_subscription(self):
         self.login(self.staff)

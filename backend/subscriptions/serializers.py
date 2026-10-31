@@ -6,7 +6,15 @@ from rest_framework import serializers
 from customers.models import Customer
 from products.models import Plan
 
-from .models import Invoice, Payment, Subscription, add_billing_interval
+from .models import (
+    DiscountRule,
+    Invoice,
+    Payment,
+    Subscription,
+    TaxRule,
+    add_billing_interval,
+    compute_invoice_totals,
+)
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
@@ -68,7 +76,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = [
             "id", "invoice_number", "subscription", "subscription_label", "customer_name",
-            "amount", "currency", "issue_date", "due_date", "status", "effective_status",
+            "subtotal", "discount_amount", "tax_amount", "amount", "currency", "issue_date", "due_date", "status", "effective_status",
             "amount_paid", "balance_due", "paid_at", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "invoice_number", "status", "paid_at", "created_at", "updated_at"]
@@ -96,7 +104,10 @@ class InvoiceSerializer(serializers.ModelSerializer):
             subscription = attrs.get("subscription")
             if subscription and subscription.status != "active":
                 raise serializers.ValidationError({"subscription": ["Only active subscriptions can be invoiced."]})
-            attrs.setdefault("amount", subscription.plan.price)
+            totals = compute_invoice_totals(subscription, attrs.get("issue_date"))
+            totals.pop("applied_rules")
+            for key, value in totals.items():
+                attrs.setdefault(key, value)
             attrs.setdefault("currency", subscription.plan.currency)
             issue = attrs.setdefault("issue_date", timezone.localdate())
             attrs.setdefault("due_date", issue + timedelta(days=7))
@@ -120,4 +131,36 @@ class PaymentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"amount": [f"Amount is more than the balance due ({invoice.balance_due()})."]}
             )
+        return attrs
+
+
+class TaxRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxRule
+        fields = ["id", "name", "rate", "active"]
+
+
+class DiscountRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiscountRule
+        fields = [
+            "id", "name", "kind", "value", "scope", "product", "min_amount", "start_date",
+            "end_date", "usage_limit", "times_used", "active",
+        ]
+        read_only_fields = ["id", "times_used"]
+
+    def validate(self, attrs):
+        scope = attrs.get("scope", getattr(self.instance, "scope", None))
+        product = attrs.get("product", getattr(self.instance, "product", None))
+        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        if scope == DiscountRule.Scope.PRODUCT and product is None:
+            raise serializers.ValidationError({"product": ["Choose the product this discount applies to."]})
+        if scope == DiscountRule.Scope.ALL:
+            attrs["product"] = None
+        if start and end and end < start:
+            raise serializers.ValidationError({"end_date": ["End date cannot be before start date."]})
+        if attrs.get("kind", getattr(self.instance, "kind", None)) == DiscountRule.Kind.PERCENT:
+            if attrs.get("value", getattr(self.instance, "value", 0)) > 100:
+                raise serializers.ValidationError({"value": ["A percentage cannot be above 100."]})
         return attrs
